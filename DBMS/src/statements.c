@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+// Функция для проверки корректности комманды
 PrepareResult prepare_statement(InputBuffer *input_buffer, Statement *statement) {
     if (strncmp(input_buffer->buffer, "INSERT", 6) == 0) {
         statement->type = STATEMENT_INSERT;
@@ -18,6 +19,7 @@ PrepareResult prepare_statement(InputBuffer *input_buffer, Statement *statement)
     return PREPARE_UNRECOGNIZED_STATEMENT;
 }
 
+// Функция для выполнения команд
 void execute_statement(DataBase *db, Statement *statement, InputBuffer *input_buffer) {
     switch (statement->type) {
         case (STATEMENT_INSERT):

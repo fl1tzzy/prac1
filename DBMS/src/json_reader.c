@@ -1,5 +1,6 @@
 #include "../include/json_reader.h"
 
+// Функция для загрузки данных из JSON-файла
 char* load_json_data(const char *fname) {
   FILE *fp = fopen(fname, "rb");
   

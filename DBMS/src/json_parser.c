@@ -1,11 +1,13 @@
 #include "../include/json_parser.h"
 
+// Функция для пропуска пробелов
 void skip_whitespace(const char **json) {
     while (isspace(**json)) {
         (*json)++;
     }
 }
 
+// Функция для парсинга строки
 char* parse_string(const char **json) {
     skip_whitespace(json);
 
@@ -28,6 +30,7 @@ char* parse_string(const char **json) {
     return str;
 }
 
+// Функция для парсинга числа
 int parse_number(const char **json) {
     skip_whitespace(json);
 
@@ -41,6 +44,7 @@ int parse_number(const char **json) {
     return number;
 }
 
+// Функция для парсинга массива колонок
 void parse_columns_array(const char** json, Table* table) {
     skip_whitespace(json);
     if (**json != '[') return;
@@ -58,6 +62,7 @@ void parse_columns_array(const char** json, Table* table) {
     (*json)++;
 }
 
+// Функция для парсинга объекта таблиц
 void parse_tables_object(const char** json, DataBase *db) {
     skip_whitespace(json);
 
@@ -90,6 +95,7 @@ void parse_tables_object(const char** json, DataBase *db) {
     (*json)++;
 }
 
+// Функция для парсинга JSON
 DataBase* parse_json(const char *json) {
     DataBase *db = malloc(sizeof(DataBase));
 

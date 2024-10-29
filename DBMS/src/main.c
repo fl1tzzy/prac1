@@ -9,13 +9,13 @@
 #include <stdbool.h>
 
 int main(int argc, char* argv[]) {
-    DataBase *database = parse_json(load_json_data("scheme.json"));
-    build_database_file_system(database);
+    DataBase *database = parse_json(load_json_data("scheme.json"));  // Парсим JSON-файл и создаем базу данных
+    build_database_file_system(database);  // Создаем файловую систему для базы данных
 
-    InputBuffer *input_buffer = new_input_buffer();
+    InputBuffer *input_buffer = new_input_buffer();  // Создаем буфер ввода
     while (true) {
-        print_prompt(database->name);
-        read_input(input_buffer);
+        print_prompt(database->name);  // Выводим приглашение ввода
+        read_input(input_buffer);  // Читаем ввод пользователя
 
         if (input_buffer->buffer[0] == '.') {
             switch (do_meta_command(input_buffer)) {
@@ -36,9 +36,9 @@ int main(int argc, char* argv[]) {
                 continue;
         }
 
-        execute_statement(database, &statement, input_buffer);
+        execute_statement(database, &statement, input_buffer);  // Выполняем оператор
         printf("Executed.\n");
     }
 
-    close_input_buffer(input_buffer);
+    close_input_buffer(input_buffer);  // Закрываем буфер ввода
 }

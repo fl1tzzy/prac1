@@ -9,28 +9,28 @@
 
 // Функция для создания директории
 int create_directory(const char* path) {
-    mode_t old_mask = umask(0);
-    if (mkdir(path, 0777) == -1) {
+    mode_t old_mask = umask(0);  // Сохраняем текущую маску прав доступа
+    if (mkdir(path, 0777) == -1) {  // Пытаемся создать директорию с правами 0777
         perror("Ошибка при создании директории");
-        umask(old_mask);
+        umask(old_mask);  // Восстанавливаем старую маску прав доступа
         return -1;
     }
-    umask(old_mask);
+    umask(old_mask);  // Восстанавливаем старую маску прав доступа
     return 0;
 }
 
 // Функция для проверки существования директории
 int directory_exists(const char* path) {
     struct stat statbuf;
-    return (stat(path, &statbuf) == 0 && S_ISDIR(statbuf.st_mode));
+    return (stat(path, &statbuf) == 0 && S_ISDIR(statbuf.st_mode));  // Проверяем, существует ли директория и является ли она директорией
 }
 
 // Функция для создания файла 1.csv в директории и записи имен колонок
 int create_csv_file(const char* path, Column *columns, size_t column_count) {
     char file_path[256];
-    snprintf(file_path, sizeof(file_path), "%s/1.csv", path);
+    snprintf(file_path, sizeof(file_path), "%s/1.csv", path);  // Формируем путь к файлу
 
-    FILE* file = fopen(file_path, "w");
+    FILE* file = fopen(file_path, "w");  // Открываем файл для записи
     if (!file) {
         perror("Ошибка при создании файла");
         return -1;
@@ -49,7 +49,7 @@ int create_csv_file(const char* path, Column *columns, size_t column_count) {
     }
     fprintf(file, "\n");
 
-    fclose(file);
+    fclose(file);  // Закрываем файл
     return 0;
 }
 
