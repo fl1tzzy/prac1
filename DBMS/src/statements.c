@@ -1,9 +1,9 @@
 #include "../include/statements.h"
+#include "../include/sql_parsed_command.h"
 
 #include <stdio.h>
 #include <string.h>
 
-// Функция для проверки корректности комманды
 PrepareResult prepare_statement(InputBuffer *input_buffer, Statement *statement) {
     if (strncmp(input_buffer->buffer, "INSERT", 6) == 0) {
         statement->type = STATEMENT_INSERT;
@@ -19,17 +19,16 @@ PrepareResult prepare_statement(InputBuffer *input_buffer, Statement *statement)
     return PREPARE_UNRECOGNIZED_STATEMENT;
 }
 
-// Функция для выполнения команд
-void execute_statement(DataBase *db, Statement *statement, InputBuffer *input_buffer) {
+void execute_statement(DataBase *db, Statement *statement, SQLParsedCommand *parsed_comand) {
     switch (statement->type) {
         case (STATEMENT_INSERT):
-            insert(db, input_buffer->buffer);
+            insert(db, parsed_comand);
             break;
         case (STATEMENT_SELECT):
-            Select(db, input_buffer->buffer);
+            Select(db, parsed_comand);
             break;
         case (STATEMENT_DELETE):
-            delete(db, input_buffer->buffer);
+            delete(db, parsed_comand);
             break;
     }
 }

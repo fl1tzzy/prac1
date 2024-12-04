@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Функция для создания нового буфера ввода
 InputBuffer* new_input_buffer() {
     InputBuffer* input_buffer = malloc(sizeof(InputBuffer));
     input_buffer->buffer = NULL;
@@ -13,10 +12,8 @@ InputBuffer* new_input_buffer() {
     return input_buffer;
 }
 
-// Функция для вывода приглашения ввода
 void print_prompt(char *database_name) { printf("%s > ", database_name); }
 
-// Функция для чтения ввода пользователя
 void read_input(InputBuffer* input_buffer) {
     size_t bytes_read = getline(&(input_buffer->buffer), &(input_buffer->buffer_length), stdin);
 
@@ -29,7 +26,6 @@ void read_input(InputBuffer* input_buffer) {
     input_buffer->buffer[bytes_read - 1] = 0;
 }
 
-// Функция для закрытия буфера ввода
 void close_input_buffer(InputBuffer* input_buffer) {
     free(input_buffer->buffer);
     free(input_buffer);

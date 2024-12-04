@@ -1,32 +1,25 @@
 #include "../include/csv_reader.h"
+#include "../include/str_split.h"
 
 void csv_reader(Table *table, char *db_name) {
-    char filepath[1024];
-    snprintf(filepath, sizeof(filepath), "%s/%s/1.csv", db_name, table->table_name);  // Формируем путь к файлу
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "%s/%s/1.csv", db_name, table->table_name);
 
-    FILE *file = fopen(filepath, "r");  // Открываем файл для чтения
+    FILE *file = fopen(filepath, "r");
 
     char line[1024];
 
-    fgets(line, sizeof(line), file);  // Пропускаем первую строку с именами колонок
+    fgets(line, sizeof(line), file);
 
-    while (fgets(line, sizeof(line), file)) {  // Читаем строки из файла
+    while (fgets(line, sizeof(line), file)) {
 
-        line[strcspn(line, "\n")] = '\0';  // Убираем символ новой строки
+        line[strcspn(line, "\n")] = '\0';
 
-        char *elements[table->column_count];
-        char *token = strtok(line, ",");  // Разбиваем строку на элементы по запятым
-        int idx = 0;
+        List *vals = str_split(line, ",");
+        add_data_to_table(table, vals);
 
-        while (token != NULL && idx < table->column_count) {
-            elements[idx] = token;
-
-            token = strtok(NULL, ",");
-            idx++;
-        }
-
-        add_data_to_table(table, elements);  // Добавляем данные в таблицу
+        free_list(vals);
     }
 
-    fclose(file);  // Закрываем файл
+    fclose(file);
 }

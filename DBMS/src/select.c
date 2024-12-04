@@ -1,209 +1,123 @@
 #include "../include/select.h"
+#include "../include/str_split.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// Функция для форматированного вывода данных
-void print_format(char ***format, size_t column_count, size_t *row_counts) {
-    for (size_t row = 0; row < row_counts[0]; row++) {
-        for (size_t col = 0; col < column_count; col++) {
-            printf("%s\t", format[col][row] ? format[col][row] : "NULL");
+bool evaluate_where_condition(Table *table, char *condition, List *row_data) {
+    List *col_and_var = str_split(condition, " = ");
+
+    if (col_and_var->size < 2) {
+        free_list(col_and_var);
+        return false;
+    }
+
+    size_t idx = get_column_index(table, (char*)get_element_at(col_and_var, 0));
+
+    bool result = (idx != (size_t)-1 && strcmp((char*)get_element_at(row_data, idx), (char*)get_element_at(col_and_var, 1)) == 0);
+
+    free_list(col_and_var);
+    return result;
+}
+
+void Select(DataBase *db, SQLParsedCommand *parsed_command) {
+    List *format[parsed_command->columns->size];
+
+    for (size_t i = 0; i < parsed_command->columns->size; i++) {
+        format[i] = new_list();
+    }
+
+    if (parsed_command->condition) {
+        List *and_condition = str_split(parsed_command->condition, " AND ");
+
+        for (size_t i = 0; i < parsed_command->columns->size; i++) {
+            List *table_and_column = str_split(get_element_at(parsed_command->columns, i), ".");
+
+            if (elemin_list(parsed_command->tables, get_element_at(table_and_column, 0))) {
+                Table *table = get_table(db, get_element_at(table_and_column, 0));
+
+                csv_reader(table, db->name);
+
+                size_t idx = get_column_index(table, get_element_at(table_and_column, 1));
+
+                for (size_t j = 0; j < table->row_count; j++) {
+                    List *row_data = get_row_in_table(table, j);
+
+                    bool should_include = false;
+
+                    List *or_condition;
+                    bool and_result = true;
+
+                    for (size_t k = 0; k < and_condition->size; k++) {
+                        or_condition = str_split((char*)get_element_at(and_condition, k), " OR ");
+
+                        bool or_result = false;
+                        for (size_t l = 0; l < or_condition->size; l++) {
+                            or_result = evaluate_where_condition(table, (char*)get_element_at(or_condition, l), row_data);
+                            if (or_result) {
+                                break;
+                            }
+                        }
+
+                        if (!or_result) {
+                            and_result = false;
+                            break;
+                        }
+
+                        free_list(or_condition);
+                    }
+
+                    if (and_result) {
+                        should_include = true;
+                    }
+
+                    if (should_include) {
+                        push_back(format[i], get_element_at(row_data, idx));
+                    }
+
+                    free_list(row_data);
+                }
+
+                free_table_data(table);
+            }
+            free_list(table_and_column);
+        }
+
+        free_list(and_condition);
+    } else {
+        for (size_t i = 0; i < parsed_command->columns->size; i++) {
+            List *table_and_column = str_split(get_element_at(parsed_command->columns, i), ".");
+
+            if (elemin_list(parsed_command->tables, get_element_at(table_and_column, 0))) {
+                Table *table = get_table(db, get_element_at(table_and_column, 0));
+
+                csv_reader(table, db->name);
+
+                size_t idx = get_column_index(table, get_element_at(table_and_column, 1));
+
+                for (size_t j = 0; j < table->row_count; j++) {
+                    List *row_data = get_row_in_table(table, j);
+
+                    push_back(format[i], get_element_at(row_data, idx));
+
+                    free_list(row_data);
+                }
+
+                free_table_data(table);
+            }
+            free_list(table_and_column);
+        }
+    }
+
+    for (size_t j = 0; j < format[0]->size; j++) {
+        for (size_t i = 0; i < parsed_command->columns->size; i++) {
+            printf("%s ", (char*)get_element_at(format[i], j));
         }
         printf("\n");
     }
-}
 
-// Функция для удаления лишних пробелов
-char *strim_whitespace(char *str) {
-    while (*str == ' ') str++;
-    char *end = str + strlen(str) - 1;
-    while (end > str && *end == ' ') end--;
-    *(end + 1) = '\0';
-    return str;
-}
-
-// Функция для получения данных колонки по имени и индексу строки
-char* get_column_data(Table *table, const char *column_name, size_t row_index) {
-    int col_index = get_column_index(table, column_name);
-    if (col_index == -1) {
-        printf("Column '%s' not found in table '%s'!\n", column_name, table->table_name);
-        return NULL;
+    for (size_t i = 0; i < parsed_command->columns->size; i++) {
+        free_list(format[i]);
     }
-
-    Column *column = &table->columns[col_index];
-    DataNode *current_node = column->data;
-
-    for (size_t i = 0; i < row_index; i++) {
-        if (current_node == NULL) {
-            printf("Row index out of bounds for column '%s'!\n", column_name);
-            return NULL;
-        }
-        current_node = current_node->next;
-    }
-
-    if (current_node)  return current_node->data;
-
-    printf("No data found for row index %zu in column '%s'!\n", row_index, column_name);
-    return NULL;
-}
-
-// Функция для проверки одного условия
-int select_check_condition(Table *table, size_t row_index, char *condition) {
-    char column_name[50];
-    char value[50];
-    char quoted_value[50];
-
-    condition = strim_whitespace(condition);
-
-    if (sscanf(condition, "%49[^ ] = '%49[^']'", column_name, quoted_value) == 2) {
-        int col_index = get_column_index(table, column_name);
-        if (col_index == -1) {
-            printf("Column '%s' not found\n", column_name);
-            return 0;
-        }
-
-        return strcmp(get_column_data(table, column_name, row_index), quoted_value) == 0;
-    }
-
-    if (sscanf(condition, "%49[^ ] = %49s", column_name, value) == 2) {
-        int col_index = get_column_index(table, column_name);
-        if (col_index == -1) {
-            printf("Column '%s' not found\n", column_name);
-            return 0;
-        }
-
-        return strcmp(get_column_data(table, column_name, row_index), value) == 0;
-    }
-
-    printf("Condition '%s' is invalid\n", condition);
-    return 0;
-}
-
-// Функция для оценки условий
-int select_evaluate_conditions(Table *table, size_t row_index, char *conditions) {
-    char *or_ptr = strstr(conditions, "OR");
-    if (or_ptr != NULL) {
-        char left_condition[256], right_condition[256];
-        strncpy(left_condition, conditions, or_ptr - conditions);
-        left_condition[or_ptr - conditions] = '\0';
-        strcpy(right_condition, or_ptr + 2);
-
-        strim_whitespace(left_condition);
-        strim_whitespace(right_condition);
-
-        return select_evaluate_conditions(table, row_index, left_condition) || 
-               select_evaluate_conditions(table, row_index, right_condition);
-    }
-
-    char *and_ptr = strstr(conditions, "AND");
-    if (and_ptr != NULL) {
-        char left_condition[256], right_condition[256];
-        strncpy(left_condition, conditions, and_ptr - conditions);
-        left_condition[and_ptr - conditions] = '\0';
-        strcpy(right_condition, and_ptr + 3);
-
-        strim_whitespace(left_condition);
-        strim_whitespace(right_condition);
-
-        return select_evaluate_conditions(table, row_index, left_condition) && 
-               select_evaluate_conditions(table, row_index, right_condition);
-    }
-
-    strim_whitespace(conditions);
-    return select_check_condition(table, row_index, conditions);
-}
-
-// Функция для выполнения команды SELECT
-void Select(DataBase *db, char *buffer) {
-    char **table_names = NULL;
-    char **column_names = NULL;
-
-    size_t column_count = 0;
-    size_t table_count = 0;
-
-    char *token = strtok(buffer, " ");
-    if (token && strcmp(token, "SELECT") == 0) {
-        char *columns_part = strtok(NULL, "FROM");
-        if (columns_part) {
-            char *column_token = strtok(columns_part, ",");
-
-            while (column_token) {
-                column_token = strim_whitespace(column_token);
-
-                char *dot_pos = strchr(column_token, '.');
-                if (dot_pos) {
-                    *dot_pos = '\0';
-                    char *table_name = column_token;
-                    char *column_name = dot_pos + 1;
-
-                    table_names = realloc(table_names, (table_count + 1) * sizeof(char *));
-                    table_names[table_count] = strdup(table_name);
-                    table_count++;
-
-                    column_names = realloc(column_names, (column_count + 1) * sizeof(char *));
-                    column_names[column_count] = strdup(column_name);
-                    column_count++;
-                } 
-                
-                else {
-                    printf("Invalid column format: %s\n", column_token);
-                }
-
-                column_token = strtok(NULL, ",");
-            }
-        }
-    }
-
-    char ***format = malloc(column_count * sizeof(char **));
-    size_t *row_counts = malloc(column_count * sizeof(size_t));
-
-    for (size_t i = 0; i < column_count; i++) {
-        Table *table = get_table(db, table_names[i]);
-        if (!table) {
-            printf("table %s not found\n", table_names[i]);
-            return;
-        }
-
-        csv_reader(table, db->name);
-        row_counts[i] = table->row_count;
-
-        format[i] = malloc(table->row_count * sizeof(char *));
-        
-        for (size_t row = 0; row < table->row_count; row++) {
-            format[i][row] = strdup(get_column_data(table, column_names[i], row));
-        }
-
-        free_table_data(table);
-    }
-
-    // Handle WHERE clause
-    char *where_clause = strstr(buffer, "WHERE");
-    if (where_clause) {
-        where_clause += strlen("WHERE");
-        where_clause = strim_whitespace(where_clause);
-
-        for (size_t i = 0; i < column_count; i++) {
-            Table *table = get_table(db, table_names[i]);
-            if (!table) {
-                printf("table %s not found\n", table_names[i]);
-                return;
-            }
-
-            csv_reader(table, db->name);
-
-            for (size_t row = 0; row < table->row_count; row++) {
-                if (!select_evaluate_conditions(table, row, where_clause)) {
-                    for (size_t col = 0; col < column_count; col++) {
-                        free(format[col][row]);
-                        format[col][row] = NULL;
-                    }
-                }
-            }
-
-            free_table_data(table);
-        }
-    }
-
-    print_format(format, column_count, row_counts);
 }

@@ -1,62 +1,25 @@
+#include <stdio.h>
+
 #include "../include/insert.h"
+#include "../include/sql_parsed_command.h"
+#include "../include/str_split.h"
 
-// Функция для выполнения команды INSERT
-void insert(DataBase *db, char *buffer) {
-    char *table_name = NULL;
 
-    char *token = strtok(buffer, " ");
-    if (token && strcmp(token, "INSERT") == 0) {
-        token = strtok(NULL, " ");
-        if (token && strcmp(token, "INTO") == 0) {
-            table_name = strtok(NULL, " ");
-        } else {
-            printf("Invalid command syntax!\n");
-            return;
-        }
-    } else {
-        printf("Invalid command syntax!\n");
-        return;
-    }
-
-    Table *table = get_table(db, table_name);
+void insert(DataBase *db, SQLParsedCommand *parsed_command) {
+    Table *table = get_table(db, get_element_at(parsed_command->tables, 0));
     if (!table) {
-        printf("Table '%s' not found!\n", table_name);
+        printf("Table '%s' notfound!\n", get_element_at(parsed_command->tables, 0));
         return;
     }
 
-    token = strtok(NULL, " ");
-    if (token && strcmp(token, "VALUES") == 0) {
-        char *values[table->column_count];
-
-        for (size_t i = 0; i < table->column_count; i++) {
-            token = strtok(NULL, ", ");
-            
-            if (token) {
-                values[i] = strdup(token);
-            }
-            
-            else {
-                printf("Not enough values provided for table '%s'.\n", table_name);
-                return;
-            }
-        }
-
-        if (strtok(NULL, " ") != NULL) {
-            printf("Too many values provided!\n");
-            return;
-        }
-
-        csv_reader(table, db->name);
-        add_data_to_table(table, values);
-        csv_write(table, db->name);
-
-        for (size_t i = 0; i < table->column_count; i++) {
-            free(values[i]);
-        }
-        free_table_data(table);
-    } 
-    
-    else {
-        printf("Invalid command syntax, VALUES keyword missing!\n");
+    if (parsed_command->values->size != table->column_count) {
+        printf("Incorrect number of values provided for table '%s'.\n", get_element_at(parsed_command->tables, 0));
+        return;
     }
+
+    csv_reader(table, db->name);
+    add_data_to_table(table, parsed_command->values);
+    csv_write(table, db->name);
+
+    free_table_data(table);
 }

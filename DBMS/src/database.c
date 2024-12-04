@@ -1,78 +1,97 @@
 #include "../include/database.h"
+#include "../include/list.h"
 
-// Функция для создания базы данных
 DataBase* create_database(const char *database_name, DataBase *db) {
-    db->name = strdup(database_name);  // Копируем имя базы данных
-    db->table_count = 0;  // Инициализируем количество таблиц
-    db->tables = NULL;  // Инициализируем указатель на таблицы
-    db->tuples_limit = 0;  // Инициализируем ограничение на количество кортежей
+    db->name = strdup(database_name);
+    db->table_count = 0;
+    db->tables = NULL;
+    db->tuples_limit = 0;
 
     return db;
 }
 
-// Функция для добавления таблицы в базу данных
 void add_table_to_database(DataBase *db, const char *table_name) {
-    db->table_count++;  // Увеличиваем количество таблиц
-    db->tables = realloc(db->tables, db->table_count * sizeof(Table));  // Перераспределяем память для таблиц
-    db->tables[db->table_count - 1].table_name = strdup(table_name);  // Копируем имя таблицы
-    db->tables[db->table_count - 1].columns = NULL;  // Инициализируем указатель на колонки
-    db->tables[db->table_count - 1].column_count = 0;  // Инициализируем количество колонок
+    db->table_count++;
+    db->tables = realloc(db->tables, db->table_count * sizeof(Table));
+    db->tables[db->table_count - 1].table_name = strdup(table_name);
+    db->tables[db->table_count - 1].columns = NULL;
+    db->tables[db->table_count - 1].column_count = 0;
 }
 
-// Функция для добавления колонки в таблицу
 void add_column_to_table(Table *table, const char *column_name) {
-    table->column_count++;  // Увеличиваем количество колонок
-    table->columns = realloc(table->columns, table->column_count * sizeof(Column));  // Перераспределяем память для колонок
-    table->columns[table->column_count - 1].name = strdup(column_name);  // Копируем имя колонки
-    table->columns[table->column_count - 1].data = NULL;  // Инициализируем указатель на данные
+    table->column_count++;
+    table->columns = realloc(table->columns, table->column_count * sizeof(Column));
+    table->columns[table->column_count - 1].name = strdup(column_name);
+    table->columns[table->column_count - 1].data = NULL;
 }
 
-// Функция для добавления данных в таблицу
-void add_data_to_table(Table *table, char **data) {
+void add_data_to_table(Table *table, List *list) {
     for (size_t i = 0; i < table->column_count; i++) {
-        DataNode *new_node = malloc(sizeof(DataNode));  // Выделяем память для нового узла данных
+        DataNode *new_node = malloc(sizeof(DataNode));
 
-        new_node->data = strdup(data[i]);  // Копируем данные в узел
-        new_node->next = NULL;  // Инициализируем указатель на следующий узел
+        new_node->data = strdup(get_element_at(list, i));
+        new_node->next = NULL;
 
         if (table->columns[i].data == NULL) {
-            table->columns[i].data = new_node;  // Если данных еще нет, устанавливаем новый узел как первый
+            table->columns[i].data = new_node;
         } 
         
         else {
             DataNode *current = table->columns[i].data;
             while (current->next != NULL) {
-                current = current->next;  // Ищем последний узел в списке
+                current = current->next;
             }
-            current->next = new_node;  // Добавляем новый узел в конец списка
+            current->next = new_node;
         }
     }
 
-    table->row_count++;  // Увеличиваем количество строк в таблице
+    table->row_count++;
 }
 
-// Функция для получения таблицы по имени
 Table* get_table(DataBase *db, const char *table_name) {
     for (size_t i = 0; i < db->table_count; i++) {
         if (strcmp(db->tables[i].table_name, table_name) == 0) {
-            return &db->tables[i];  // Возвращаем указатель на таблицу, если найдена
+            return &db->tables[i];
         }
     }
 
-    return NULL;  // Возвращаем NULL, если таблица не найдена
+    return NULL;
 }
 
-// Функция для получения индекса колонки по имени
+List* get_row_in_table(Table *table, size_t row_index) {
+    if (row_index >= table->row_count) {
+        return NULL;
+    }
+
+    List *row_data = new_list();
+
+    if (row_data == NULL) {
+        return NULL;
+    }
+
+    for (size_t i = 0; i < table->column_count; i++) {
+        DataNode *current = table->columns[i].data;
+        for (size_t j = 0; j < row_index && current != NULL; j++) {
+            current = current->next;
+        }
+
+        if (current != NULL) {
+            push_back(row_data, strdup(current->data));
+        }
+    }
+
+    return row_data;
+}
+
 int get_column_index(Table *table, const char *column_name) {
     for (size_t i = 0; i < table->column_count; i++) {
         if (strcmp(table->columns[i].name, column_name) == 0) {
-            return i;  // Возвращаем индекс колонки, если найдена
+            return i;
         }
     }
-    return -1;  // Возвращаем -1, если колонка не найдена
+    return -1;
 }
 
-// Функция для удаления строки из таблицы
 void delete_row(Table *table, size_t row_index) {
     for (size_t j = 0; j < table->column_count; j++) {
         DataNode *prev = NULL;
@@ -80,38 +99,36 @@ void delete_row(Table *table, size_t row_index) {
         
         for (size_t k = 0; k < row_index && current != NULL; k++) {
             prev = current;
-            current = current->next;  // Ищем узел, который нужно удалить
+            current = current->next;
         }
 
         if (prev != NULL) {
-            prev->next = current->next;  // Обновляем указатель предыдущего узла
+            prev->next = current->next;
         } else {
-            table->columns[j].data = current->next;  // Если удаляем первый узел, обновляем указатель на первый узел
+            table->columns[j].data = current->next;
         }
 
-        free(current->data);  // Освобождаем память, занятую данными
-        free(current);  // Освобождаем память, занятую узлом
+        free(current->data);
+        free(current);
     }
 
-    table->row_count--;  // Уменьшаем количество строк в таблице
+    table->row_count--;
 }
 
-// Функция для освобождения памяти, занятой данными в колонке
 void free_column_data(Column *column) {
     DataNode *current = column->data;
     while (current != NULL) {
-        DataNode *next = current->next;  // Сохраняем указатель на следующий узел
-        free(current->data);  // Освобождаем память, занятую данными
-        free(current);  // Освобождаем память, занятую узлом
-        current = next;  // Переходим к следующему узлу
+        DataNode *next = current->next;
+        free(current->data);
+        free(current);
+        current = next;
     }
-    column->data = NULL;  // Обнуляем указатель на данные в колонке
+    column->data = NULL;
 }
 
-// Функция для освобождения памяти, занятой данными в таблице
 void free_table_data(Table *table) {
     for (size_t i = 0; i < table->column_count; i++) {
-        free_column_data(&table->columns[i]);  // Освобождаем данные в каждой колонке
+        free_column_data(&table->columns[i]);
     }
-    table->row_count = 0;  // Обнуляем количество строк в таблице
+    table->row_count = 0;
 }
